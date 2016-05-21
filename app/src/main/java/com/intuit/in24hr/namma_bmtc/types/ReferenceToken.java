@@ -4,14 +4,14 @@ package com.intuit.in24hr.namma_bmtc.types;
  *
  */
 public class ReferenceToken {
-    String referenceToken;
+    String refToken;
 
-    public String getReferenceToken() {
-        return referenceToken;
+    public String getRefToken() {
+        return refToken;
     }
 
-    public void setReferenceToken(String referenceToken) {
-        this.referenceToken = referenceToken;
+    public void setRefToken(String refToken) {
+        this.refToken = refToken;
     }
 
     public ReferenceToken() {
@@ -19,7 +19,6 @@ public class ReferenceToken {
     }
 
     public ReferenceToken(String referenceToken) {
-        this.referenceToken = referenceToken;
-
+        this.refToken = referenceToken;
     }
 }

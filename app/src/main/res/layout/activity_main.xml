@@ -23,6 +23,20 @@
             android:layout_margin="@dimen/fab_margin"
             android:src="@drawable/location_share" />
 
+        <android.support.design.widget.FloatingActionButton
+            android:id="@+id/stop_share"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="bottom|end"
+            android:layout_margin="@dimen/fab_margin"
+            android:src="@drawable/red_glossy_dot_hi" />
+
+        <android.support.design.widget.FloatingActionButton
+            android:id="@+id/thanks_count"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="bottom|start"
+            android:layout_margin="@dimen/fab_margin"
+            android:src="@drawable/red_glossy_dot_hi" />
     </fragment>
 </LinearLayout>
-

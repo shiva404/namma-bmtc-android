@@ -36,19 +36,24 @@
             android:value="@string/google_maps_key" />
 
         <service
-            android:name=".LocationUpdateService"
+            android:name=".LocationShareService"
             android:exported="false"/>
 
         <service
             android:name=".LocationPullService"
             android:exported="false"/>
 
+        <service android:name=".LocationStopShareService"
+            android:exported="false"/>
+
+        <service android:name=".BusDetailsService"
+            android:exported="false" />
+
         <activity
             android:name=".MainActivity"
             android:label="@string/title_activity_main">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
-
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>

@@ -7,10 +7,9 @@ import android.os.Handler;
 import android.os.Looper;
 import android.os.Message;
 import android.support.design.widget.FloatingActionButton;
-import android.support.v4.app.DialogFragment;
 import android.support.v4.app.FragmentActivity;
 import android.os.Bundle;
-import android.view.LayoutInflater;
+import android.support.v4.app.FragmentManager;
 import android.view.View;
 import android.widget.EditText;
 import android.widget.RadioButton;
@@ -21,26 +20,37 @@ import com.google.android.gms.maps.CameraUpdateFactory;
 import com.google.android.gms.maps.GoogleMap;
 import com.google.android.gms.maps.OnMapReadyCallback;
 import com.google.android.gms.maps.SupportMapFragment;
-import com.google.android.gms.maps.UiSettings;
 import com.google.android.gms.maps.model.BitmapDescriptorFactory;
 import com.google.android.gms.maps.model.LatLng;
+import com.google.android.gms.maps.model.Marker;
 import com.google.android.gms.maps.model.MarkerOptions;
 import com.google.maps.android.ui.IconGenerator;
+import com.intuit.in24hr.namma_bmtc.types.BusRoute;
 import com.intuit.in24hr.namma_bmtc.types.LocationPage;
 
-import java.util.Random;
-import java.util.concurrent.ThreadLocalRandom;
+import static com.intuit.in24hr.namma_bmtc.Constants.STATUS_ERROR;
+import static com.intuit.in24hr.namma_bmtc.Constants.STATUS_FINISHED;
+import static com.intuit.in24hr.namma_bmtc.Constants.STATUS_RUNNING;
 
 
 public class MainActivity extends FragmentActivity implements OnMapReadyCallback,
-        LocationUpdateResultReceiver.Receiver,
+        LocationShareResultReceiver.Receiver,
         LocationPullResultReceiver.Receiver,
-        ShareLocationDialogFragment.ShareLocationDialogListener{
+        LocationStopShareResultReceiver.Receiver,
+        BusDetailsServiceResultReceiver.Receiver,
+        GoogleMap.OnMarkerClickListener,
+        ShareLocationDialogFragment.ShareLocationDialogListener,
+        StopSharingDialogFragment.StopSharingDialogListener{
 
     private GoogleMap mMap;
     private Location currentLocation;
     public static String referenceToken;
-    LocationUpdateResultReceiver locationUpdateReceiver;
+    LocationShareResultReceiver locationUpdateReceiver;
+    LocationStopShareResultReceiver locationStopShareResultReceiver;
+    BusDetailsServiceResultReceiver busDetailsServiceResultReceiver;
+
+    FloatingActionButton stopShareButton;
+    FloatingActionButton shareButton;
 
     @Override
     protected void onCreate(final Bundle savedInstanceState) {
@@ -49,33 +59,40 @@ public class MainActivity extends FragmentActivity implements OnMapReadyCallback
         // Obtain the SupportMapFragment and get notified when the map is ready to be used.
         final SupportMapFragment mapFragment = (SupportMapFragment) getSupportFragmentManager()
                 .findFragmentById(R.id.map);
-        locationUpdateReceiver = new LocationUpdateResultReceiver(new Handler());
+        locationUpdateReceiver = new LocationShareResultReceiver(new Handler());
         locationUpdateReceiver.setReceiver(MainActivity.this);
+        busDetailsServiceResultReceiver = new BusDetailsServiceResultReceiver(new Handler());
+        busDetailsServiceResultReceiver.setReceiver(MainActivity.this);
+        locationStopShareResultReceiver = new LocationStopShareResultReceiver(new Handler());
+        locationStopShareResultReceiver.setReceiver(MainActivity.this);
 
-        FloatingActionButton fab = (FloatingActionButton) findViewById(R.id.share);
-        fab.setOnClickListener(new View.OnClickListener() {
+        stopShareButton = (FloatingActionButton) findViewById(R.id.stop_share);
+        stopShareButton.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                StopSharingDialogFragment dialog = StopSharingDialogFragment.newInstance();
+                Bundle args = new Bundle();
+                args.putSerializable("refToken", referenceToken); //get location
+                dialog.setArguments(args);
+                dialog.show(getSupportFragmentManager(), "stop_sharing");
+            }
+        });
+        stopShareButton.setVisibility(View.GONE);
+        shareButton = (FloatingActionButton) findViewById(R.id.share);
+        shareButton.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
-//                LinearLayout linearLayout = (LinearLayout) findViewById(R.id.share_menu);
-                LayoutInflater inflater = mapFragment.getLayoutInflater(savedInstanceState);
-                View childView = inflater.inflate(R.layout.location_share, null);
-
-//                final PopupWindow popupWindow = new PopupWindow(
-//                        childView,
-//                        LayoutParams.WRAP_CONTENT,
-//                        LayoutParams.WRAP_CONTENT);
-
-//                ViewGroup insertPoint = (ViewGroup) findViewById(R.id.main_menu);
-//                insertPoint.addView(childView, 0);
-                //insertPoint.bringChildToFront(childView);
-                ShareLocationDialogFragment dialog = new ShareLocationDialogFragment();
-                Bundle args = new Bundle();
-                args.putParcelable("receiver", locationUpdateReceiver);
-                args.putSerializable("location", new com.intuit.in24hr.namma_bmtc.types.Location(referenceToken,
-                        currentLocation.getLatitude(), currentLocation.getLongitude(), null, null)); //get location
-                dialog.setArguments(args);
-                dialog.show(getSupportFragmentManager(), "Share location");
-
+                if (currentLocation != null) {
+                    ShareLocationDialogFragment dialog = ShareLocationDialogFragment.newInstance();
+                    Bundle args = new Bundle();
+                    args.putSerializable("location", new com.intuit.in24hr.namma_bmtc.types.Location(referenceToken,
+                            currentLocation.getLatitude(), currentLocation.getLongitude(), null, null)); //get location
+                    dialog.setArguments(args);
+                    dialog.show(getSupportFragmentManager(), "location_share");
+                } else {
+                    Toast.makeText(MainActivity.this,
+                            "Oops!! Failed to locate you.. Please wait for sometime..", Toast.LENGTH_LONG).show();
+                }
             }
         });
         mapFragment.getMapAsync(this);
@@ -133,21 +150,83 @@ public class MainActivity extends FragmentActivity implements OnMapReadyCallback
             }
         };
         myLocation.getLocation(locationResult, 10000);
+        mMap.setOnMarkerClickListener(this);
         mMap.setOnMyLocationButtonClickListener(new GoogleMap.OnMyLocationButtonClickListener() {
             @Override
             public boolean onMyLocationButtonClick() {
                 LatLng latLang = new LatLng(currentLocation.getLatitude(), currentLocation.getLongitude());
-
                 return true;
             }
         });
     }
 
     @Override
-    public void onReceiveLocationUpdateResult(int resultCode, Bundle resultData) {
-        //update buttons to [stop sharing/update bus crowd] and disable share button
-        referenceToken = resultData.getString("refToken");
-        System.out.println("******************* Reference token" + referenceToken);
+    public void onReceiveBusDetailsResult(int resultCode, Bundle resultData) {
+        switch (resultCode){
+            case STATUS_RUNNING:
+                setProgressBarIndeterminateVisibility(true);
+                break;
+            case STATUS_FINISHED:
+                ShowBusDetailsDialogFragment dialog;
+                BusRoute busRoute = (BusRoute) resultData.getSerializable("busRoute");
+                if(busRoute != null){
+                    dialog = ShowBusDetailsDialogFragment.newInstance(busRoute.getBusRoute(), busRoute.getFrom(), busRoute.getTo(), busRoute.getDetails());
+                } else {
+                    dialog = ShowBusDetailsDialogFragment.newInstance("Not found", "Not found", "Not found", "No data");
+                }
+                Bundle args = new Bundle();
+                dialog.setArguments(args);
+                dialog.show(getSupportFragmentManager(), "bus_details");
+                //Trigger UI thread to start sending location
+                break;
+            case STATUS_ERROR:
+                /* Handle the error */
+                String error = resultData.getString(Intent.EXTRA_TEXT);
+                Toast.makeText(this, "Something went wrong!! Location did not get shared.", Toast.LENGTH_LONG).show();
+                break;
+        }
+    }
+
+    @Override
+    public void onReceiveLStopLocationShareResult(int resultCode, Bundle resultData) {
+        switch (resultCode){
+            case STATUS_RUNNING:
+                setProgressBarIndeterminateVisibility(true);
+                break;
+            case STATUS_FINISHED:
+                Toast.makeText(this, "Sharing stopped", Toast.LENGTH_LONG).show();
+                stopShareButton.setVisibility(View.GONE);
+                shareButton.setVisibility(View.VISIBLE);
+                //Trigger UI thread to start sending location
+                break;
+            case STATUS_ERROR:
+                /* Handle the error */
+                String error = resultData.getString(Intent.EXTRA_TEXT);
+                Toast.makeText(this, "Something went wrong!! Location did not get shared.", Toast.LENGTH_LONG).show();
+                break;
+        }
+    }
+
+    @Override
+    public void onReceiveLocationShareResult(int resultCode, Bundle resultData) {
+        //todo: update buttons to [stop sharing/update bus crowd] and disable share button
+        switch (resultCode){
+            case STATUS_RUNNING:
+                setProgressBarIndeterminateVisibility(true);
+                break;
+            case STATUS_FINISHED:
+                referenceToken = resultData.getString("refToken");
+                Toast.makeText(this, "Location shared successfully", Toast.LENGTH_LONG).show();
+                shareButton.setVisibility(View.GONE);
+                stopShareButton.setVisibility(View.VISIBLE);
+                //Trigger UI thread to start sending location
+                break;
+            case STATUS_ERROR:
+                /* Handle the error */
+                String error = resultData.getString(Intent.EXTRA_TEXT);
+                Toast.makeText(this, "Something went wrong!! Location did not get shared.", Toast.LENGTH_LONG).show();
+                break;
+        }
     }
 
     @Override
@@ -156,10 +235,10 @@ public class MainActivity extends FragmentActivity implements OnMapReadyCallback
         IconGenerator iconFactory = new IconGenerator(getApplicationContext());
 
         switch (resultCode) {
-            case Constants.STATUS_RUNNING:
+            case STATUS_RUNNING:
                 setProgressBarIndeterminateVisibility(true);
                 break;
-            case Constants.STATUS_FINISHED:
+            case STATUS_FINISHED:
                 mMap.clear();
                 LatLng latLng = new LatLng(currentLocation.getLatitude(), currentLocation.getLongitude());
                 mMap.addMarker(new MarkerOptions().position(latLng));
@@ -180,7 +259,7 @@ public class MainActivity extends FragmentActivity implements OnMapReadyCallback
                     addIcon(iconFactory, location.getRouteNumber(), latLang);
                 }
                 break;
-            case Constants.STATUS_ERROR:
+            case STATUS_ERROR:
                 /* Handle the error */
                 String error = resultData.getString(Intent.EXTRA_TEXT);
                 Toast.makeText(this, error, Toast.LENGTH_LONG).show();
@@ -192,37 +271,46 @@ public class MainActivity extends FragmentActivity implements OnMapReadyCallback
         MarkerOptions markerOptions = new MarkerOptions().
                 icon(BitmapDescriptorFactory.fromBitmap(iconFactory.makeIcon(text))).
                 position(position).
+                snippet(text.toString()).
                 anchor(iconFactory.getAnchorU(), iconFactory.getAnchorV());
-
         mMap.addMarker(markerOptions);
     }
 
     @Override
-    public void onDialogPositiveClick(DialogFragment dialog) {
-        EditText routeNumberValue = (EditText) findViewById(R.id.routeNumberText);
-        String routeNumber;
-        if(routeNumberValue == null)
-            routeNumber = "501";
-        else
-            routeNumber = routeNumberValue.getText().toString();
+    public boolean onMarkerClick(final Marker marker) {
+        Intent mServiceIntent = new Intent(this, BusDetailsService.class);
+//        mServiceIntent.putExtra("refToken", referenceToken);
+        mServiceIntent.putExtra("busRouteNo", marker.getSnippet());
+        mServiceIntent.putExtra("receiver", busDetailsServiceResultReceiver);
+        startService(mServiceIntent);
+        return true;
+    }
 
-//        RadioGroup busCrowdedButtonGroup = (RadioGroup) findViewById(R.id.radioBusCrowd);
-//
-//        int checkedRadioButtonId = busCrowdedButtonGroup.getCheckedRadioButtonId();
-//
-//        RadioButton crowdSelection = (RadioButton) findViewById(checkedRadioButtonId);
-//        String crowdString = null;
-//        switch (crowdSelection.getId()){
-//            case R.id.radioBusCrowd:
-//                crowdString = "CROWDED";
-//            case R.id.radioSeats:
-//                crowdString = "SEAT";
-//            case R.id.radioStanding:
-//                crowdString = "STAND";
-//        }
+    @Override
+    public void onDialogPositiveClick(ShareLocationDialogFragment dialog) {
 
-        String crowdString = "STAND";
-        Intent mServiceIntent = new Intent(this, LocationUpdateService.class);
+        EditText routeNumberValue = dialog.routeNumberValue;
+        String routeNumber = routeNumberValue.getText().toString();
+
+        RadioGroup busCrowdedButtonGroup = dialog.busCrowdedButtonGroup;
+
+        System.out.println("%%%%%%%% route value " + routeNumber);
+
+        int checkedRadioButtonId = busCrowdedButtonGroup.getCheckedRadioButtonId();
+
+        RadioButton crowdSelection = (RadioButton) busCrowdedButtonGroup.findViewById(checkedRadioButtonId);
+        String crowdString = null;
+        switch (crowdSelection.getId()){
+            case R.id.radioBusCrowd:
+                crowdString = "CROWDED";
+            case R.id.radioSeats:
+                crowdString = "SEAT";
+            case R.id.radioStanding:
+                crowdString = "STAND";
+        }
+
+//        String crowdString = "STAND";
+        Intent mServiceIntent = new Intent(this, LocationShareService.class);
         mServiceIntent.putExtra("location", new com.intuit.in24hr.namma_bmtc.types.Location(referenceToken, currentLocation.getLatitude(),
                 currentLocation.getLongitude(), routeNumber, crowdString));
         mServiceIntent.putExtra("receiver", locationUpdateReceiver);
@@ -230,7 +318,17 @@ public class MainActivity extends FragmentActivity implements OnMapReadyCallback
     }
 
     @Override
-    public void onDialogNegativeClick(DialogFragment dialog) {
+    public void onDialogNegativeClick(ShareLocationDialogFragment dialog) {
 
     }
+
+    @Override
+    public void onStopShareDialogPositiveClick(StopSharingDialogFragment dialog) {
+        System.out.println("Delete location *******************");
+        Intent mServiceIntent = new Intent(this, LocationStopShareService.class);
+        mServiceIntent.putExtra("refToken", referenceToken);
+        mServiceIntent.putExtra("receiver", locationStopShareResultReceiver);
+        startService(mServiceIntent);
+    }
+
 }

@@ -14,6 +14,7 @@ public class Location implements Serializable {
     private String refToken;
 
 
+
     public String getRefToken() {
         return refToken;
     }

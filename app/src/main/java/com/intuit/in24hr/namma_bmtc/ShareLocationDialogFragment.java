@@ -1,17 +1,16 @@
 package com.intuit.in24hr.namma_bmtc;
 
 import android.app.Activity;
+import android.app.AlertDialog;
 import android.app.Dialog;
 import android.content.DialogInterface;
-import android.content.Intent;
 import android.os.Bundle;
-import android.os.ResultReceiver;
 import android.support.annotation.NonNull;
+import android.support.annotation.Nullable;
 import android.support.v4.app.DialogFragment;
-import android.support.v7.app.AlertDialog;
 import android.view.LayoutInflater;
+import android.view.View;
 import android.widget.EditText;
-import android.widget.RadioButton;
 import android.widget.RadioGroup;
 
 import com.intuit.in24hr.namma_bmtc.types.Location;
@@ -22,16 +21,34 @@ import com.intuit.in24hr.namma_bmtc.types.Location;
 public class ShareLocationDialogFragment extends DialogFragment {
 
     public static interface ShareLocationDialogListener {
-        public void onDialogPositiveClick(DialogFragment dialog);
-        public void onDialogNegativeClick(DialogFragment dialog);
+        public void onDialogPositiveClick(ShareLocationDialogFragment dialog);
+        public void onDialogNegativeClick(ShareLocationDialogFragment dialog);
     }
 
-
     ShareLocationDialogListener listener;
+    EditText routeNumberValue;
+    RadioGroup busCrowdedButtonGroup;
+    Location location;
+
+    public ShareLocationDialogFragment(){
+    }
+
+    public static ShareLocationDialogFragment newInstance() {
+        ShareLocationDialogFragment frag = new ShareLocationDialogFragment();
+        Bundle args = new Bundle();
+        frag.setArguments(args);
+        return frag;
+    }
+
+    @Override
+    public void onViewCreated(View view, @Nullable Bundle savedInstanceState) {
+
+    }
 
     // Override the Fragment.onAttach() method to instantiate the StartPayperiodDialogListener
     @Override
     public void onAttach(Activity activity){
+        System.out.println("On create view attach ############");
         super.onAttach(activity);
         // Verify that the host activity implements the callback interface
         try{
@@ -43,20 +60,21 @@ public class ShareLocationDialogFragment extends DialogFragment {
         }
     }
 
-
     @NonNull
     @Override
     public Dialog onCreateDialog(Bundle savedInstanceState) {
+        System.out.println("On onCreateDialog ############");
         final Location location = (Location) getArguments().getSerializable("location");
 
-        final LocationUpdateResultReceiver resultReceiver = getArguments().getParcelable("receiver");
-
+        this.location = location;
         AlertDialog.Builder builder = new AlertDialog.Builder(getActivity());
         LayoutInflater inflater = getActivity().getLayoutInflater();
 
-        builder.setView(inflater.inflate(R.layout.location_share, null))
+        View inflate = inflater.inflate(R.layout.location_share, null);
+        routeNumberValue = (EditText) inflate.findViewById(R.id.routeNumberText);
+        busCrowdedButtonGroup = (RadioGroup) inflate.findViewById(R.id.radioBusCrowd);
+        builder.setView(inflate)
                 .setPositiveButton(R.string.share, new DialogInterface.OnClickListener() {
-
                     @Override
                     public void onClick(DialogInterface dialog, int id) {
                         listener.onDialogPositiveClick(ShareLocationDialogFragment.this);
@@ -64,12 +82,10 @@ public class ShareLocationDialogFragment extends DialogFragment {
                 })
                 .setNegativeButton(R.string.cancel, new DialogInterface.OnClickListener() {
                     public void onClick(DialogInterface dialog, int id) {
-                        ShareLocationDialogFragment.this.getDialog().cancel();
+                        dialog.dismiss();
                     }
                 });
-        // Create the AlertDialog object and return it
         return builder.create();
-
     }
 
 }

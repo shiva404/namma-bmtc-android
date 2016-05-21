@@ -7,7 +7,7 @@ import android.support.v4.os.ResultReceiver;
 /**
  *
  */
-public class LocationUpdateResultReceiver extends ResultReceiver {
+public class LocationShareResultReceiver extends ResultReceiver {
     private Receiver mReceiver;
 
     /**
@@ -17,12 +17,12 @@ public class LocationUpdateResultReceiver extends ResultReceiver {
      *
      * @param handler
      */
-    public LocationUpdateResultReceiver(Handler handler) {
+    public LocationShareResultReceiver(Handler handler) {
         super(handler);
     }
 
     public interface Receiver {
-        void onReceiveLocationUpdateResult(int resultCode, Bundle resultData);
+        void onReceiveLocationShareResult(int resultCode, Bundle resultData);
     }
 
     public void setReceiver(Receiver receiver) {
@@ -32,7 +32,7 @@ public class LocationUpdateResultReceiver extends ResultReceiver {
     @Override
     protected void onReceiveResult(int resultCode, Bundle resultData) {
         if (mReceiver != null) {
-            mReceiver.onReceiveLocationUpdateResult(resultCode, resultData);
+            mReceiver.onReceiveLocationShareResult(resultCode, resultData);
         }
     }
 }

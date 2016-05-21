@@ -5,10 +5,10 @@ import android.content.Intent;
 import android.os.Bundle;
 import android.support.v4.os.ResultReceiver;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.intuit.in24hr.namma_bmtc.types.LocationPage;
 import com.intuit.in24hr.namma_bmtc.types.ReferenceToken;
 
-import org.codehaus.jackson.map.ObjectMapper;
 import org.json.JSONException;
 import org.json.JSONObject;
 
@@ -30,6 +30,7 @@ import static com.intuit.in24hr.namma_bmtc.ServiceHelper.convertInputStreamToStr
  */
 public class LocationPullService extends IntentService {
 
+
     ObjectMapper objectMapper = new ObjectMapper();
     /**
      * Creates an IntentService.  Invoked by your subclass's constructor.
@@ -50,6 +51,7 @@ public class LocationPullService extends IntentService {
             bundle.putSerializable("locations", locationPage);
             receiver.send(STATUS_FINISHED, bundle);
         } catch (Exception e) {
+            e.printStackTrace();
             bundle.putString(Intent.EXTRA_TEXT, "Oops!! Something went wrong!!");
             receiver.send(STATUS_ERROR, bundle);
         }
@@ -61,7 +63,7 @@ public class LocationPullService extends IntentService {
 
         /* forming th java.net.URL object */
 
-        URL url = new URL("http://lb-1816851115.ap-southeast-1.elb.amazonaws.com/test/v1/location?lat=" + location[0] + "&long="+ location[1]);
+        URL url = new URL("http://" + Constants.SERVER_HOSTNAME + "/test/v1/location?lat=" + location[0] + "&long="+ location[1]);
         urlConnection = (HttpURLConnection) url.openConnection();
 
         /* optional request header */

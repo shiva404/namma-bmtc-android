@@ -72,8 +72,8 @@ public class LocationHelper {
                 Location net_loc=null, gps_loc=null;
                 if(gps_enabled)
                     gps_loc=locationManager.getLastKnownLocation(LocationManager.GPS_PROVIDER);
-                if(network_enabled)
-                    net_loc=locationManager.getLastKnownLocation(LocationManager.NETWORK_PROVIDER);
+//                if(network_enabled)
+//                    net_loc=locationManager.getLastKnownLocation(LocationManager.NETWORK_PROVIDER);
 
                 //if there are both values use the latest one
                 if(gps_loc!=null && net_loc!=null){
