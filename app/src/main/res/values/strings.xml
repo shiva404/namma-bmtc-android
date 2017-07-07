@@ -3,5 +3,5 @@
     <string name="title_activity_main">Namma-BMTC</string>
     <string name="share">Share</string>
     <string name="cancel">Cancel</string>
-    <string name="host">http://54.169.237.20:8080/</string>
+    <string name="host">http://13.126.238.76:8080/</string>
 </resources>

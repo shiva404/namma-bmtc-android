@@ -12,16 +12,18 @@ import java.util.TimerTask;
 
 public class LocationHelper {
 
+    private static LocationManager locationManager;
+    boolean gps_enabled=false;
+    boolean network_enabled=false;
+    LocationResult locationResult;
+    Timer timer1;
+
     public LocationHelper(Context context){
         if(locationManager == null)
             locationManager = (LocationManager) context.getSystemService(Context.LOCATION_SERVICE);
 
         try{
             gps_enabled = locationManager.isProviderEnabled(LocationManager.GPS_PROVIDER);
-        }catch(Exception ex){
-            ex.printStackTrace();
-        }
-        try{
             network_enabled = locationManager.isProviderEnabled(LocationManager.NETWORK_PROVIDER);
         }catch(Exception ex){
             ex.printStackTrace();
@@ -49,11 +51,7 @@ public class LocationHelper {
         }
     }
 
-    private static LocationManager locationManager;
-    boolean gps_enabled=false;
-    boolean network_enabled=false;
-    LocationResult locationResult;
-    Timer timer1;
+
 
     public boolean getLocation(LocationResult result, int delay){
         locationResult=result;
