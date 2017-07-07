@@ -6,7 +6,6 @@ import android.location.Location;
 import android.os.Handler;
 import android.os.Looper;
 import android.os.Message;
-import android.support.design.widget.BottomSheetDialogFragment;
 import android.support.design.widget.FloatingActionButton;
 import android.support.v4.app.FragmentActivity;
 import android.os.Bundle;
@@ -60,16 +59,20 @@ public class MainActivity extends FragmentActivity implements OnMapReadyCallback
     BusDetailsServiceResultReceiver busDetailsServiceResultReceiver;
     LocationPullResultReceiver locationPullReciever;
     LocationUpdateResultReciever locationUpdateResultReciever;
+    FetchThanksResultReceiver fetchThanksResultReceiver;
+
+
     GPSTracker gps;
 
     String routeNumber = null;
     String crowdString = null;
     FloatingActionButton dropPageButton;
     FloatingActionButton shareButton;
-    ScheduledExecutorService scheduledExecutorService = new ScheduledThreadPoolExecutor(1);
+    ScheduledExecutorService scheduledExecutorService = new ScheduledThreadPoolExecutor(2);
     ScheduledFuture<?> pullLocationScheduledTask;
+    ScheduledFuture<?> fetchThanksCountScheduledTask;
 
-    BottomSheetDialogFragment bottomSheetDialogFragment;
+    BottomSheet3DialogFragment bottomSheetDialogFragment = new BottomSheet3DialogFragment(MainActivity.this);
 
     @Override
     protected void onCreate(final Bundle savedInstanceState) {
@@ -90,6 +93,9 @@ public class MainActivity extends FragmentActivity implements OnMapReadyCallback
 
         locationUpdateResultReciever = new LocationUpdateResultReciever(new Handler());
         locationUpdateResultReciever.setReceiver(MainActivity.this);
+
+        fetchThanksResultReceiver = new FetchThanksResultReceiver(new Handler());
+        fetchThanksResultReceiver.setReceiver(bottomSheetDialogFragment);
 
 
         dropPageButton = (FloatingActionButton) findViewById(R.id.drop_sheet_btn);
@@ -148,7 +154,12 @@ public class MainActivity extends FragmentActivity implements OnMapReadyCallback
                 ShowBusDetailsDialogFragment dialog;
                 BusRoute busRoute = (BusRoute) resultData.getSerializable("busRoute");
                 if(busRoute != null){
-                    dialog = ShowBusDetailsDialogFragment.newInstance(busRoute.getBusRoute(), busRoute.getFrom(), busRoute.getTo(), busRoute.getDetails());
+
+                    String details = busRoute.getDetails();
+                    if(details == null || details.isEmpty()){
+                        details = "No details found!! We will update soon.";
+                    }
+                    dialog = ShowBusDetailsDialogFragment.newInstance(busRoute.getBusRoute(), busRoute.getFrom(), busRoute.getTo(), details);
                 } else {
                     dialog = ShowBusDetailsDialogFragment.newInstance("Not found", "Not found", "Not found", "No data");
                 }
@@ -178,6 +189,7 @@ public class MainActivity extends FragmentActivity implements OnMapReadyCallback
                 referenceToken = null;
                 startPollingForLocations();
                 bottomSheetDialogFragment.dismiss();
+                fetchThanksCountScheduledTask.cancel(true);
                 //Trigger UI thread to start sending location
                 break;
             case STATUS_ERROR:
@@ -188,27 +200,42 @@ public class MainActivity extends FragmentActivity implements OnMapReadyCallback
         }
     }
 
+    private void startPollingForThanksCount() {
+        if(fetchThanksCountScheduledTask == null || fetchThanksCountScheduledTask.isCancelled() || fetchThanksCountScheduledTask.isDone())
+            fetchThanksCountScheduledTask = scheduledExecutorService.scheduleWithFixedDelay(new Runnable() {
+                @Override
+                public void run() {
+                    System.out.println("polling thansk count");
+                    Intent fetchThanksCountService = new Intent(getApplicationContext(), FetchThanksCountService.class);
+                    fetchThanksCountService.putExtra("receiver", fetchThanksResultReceiver);
+                    fetchThanksCountService.putExtra("refToken", referenceToken);
+                    getApplicationContext().startService(fetchThanksCountService);
+                }
+            }, 0, 5, TimeUnit.SECONDS);
+    }
+
     private void startPollingForLocations() {
         System.out.println("starting pulling resulsts");
         currentLocation = gps.getLocation();
         //to keep pulling statu of the newly available bus
-        pullLocationScheduledTask = scheduledExecutorService.scheduleWithFixedDelay(new Runnable() {
-            @Override
-            public void run() {
-                if (gps.canGetLocation()) {
-                    currentLocation = gps.getLocation();
-                    double latitude = gps.getLatitude();
-                    double longitude = gps.getLongitude();
-                    Intent locationPullService = new Intent(getApplicationContext(), LocationPullService.class);
-                    locationPullService.putExtra("receiver", locationPullReciever);
-                    locationPullService.putExtra("location", new double[]{latitude, longitude});
-                    getApplicationContext().startService(locationPullService);
+        if(pullLocationScheduledTask == null || pullLocationScheduledTask.isCancelled() || pullLocationScheduledTask.isDone())
+            pullLocationScheduledTask = scheduledExecutorService.scheduleWithFixedDelay(new Runnable() {
+                @Override
+                public void run() {
+                    if (gps.canGetLocation()) {
+                        currentLocation = gps.getLocation();
+                        double latitude = gps.getLatitude();
+                        double longitude = gps.getLongitude();
+                        Intent locationPullService = new Intent(getApplicationContext(), LocationPullService.class);
+                        locationPullService.putExtra("receiver", locationPullReciever);
+                        locationPullService.putExtra("location", new double[]{latitude, longitude});
+                        getApplicationContext().startService(locationPullService);
 
-                } else {
-                    gps.showSettingsAlert();
+                    } else {
+                        gps.showSettingsAlert();
+                    }
                 }
-            }
-        }, 0, 5, TimeUnit.SECONDS);
+            }, 0, 5, TimeUnit.SECONDS);
         mMap.setOnMarkerClickListener(MainActivity.this);
         mMap.setOnMyLocationButtonClickListener(new GoogleMap.OnMyLocationButtonClickListener() {
             @Override
@@ -249,11 +276,8 @@ public class MainActivity extends FragmentActivity implements OnMapReadyCallback
                 dropPageButton.setVisibility(View.VISIBLE);
                 System.out.println("Stopping pulling resulsts");
                 pullLocationScheduledTask.cancel(true); //stop pulling locations
-                if(bottomSheetDialogFragment == null){
-                    bottomSheetDialogFragment = new BottomSheet3DialogFragment(MainActivity.this);
-                }
                 bottomSheetDialogFragment.show(getSupportFragmentManager(), bottomSheetDialogFragment.getTag());
-
+                startPollingForThanksCount();
                 //Trigger UI thread to start sending location
                 break;
             case STATUS_ERROR:

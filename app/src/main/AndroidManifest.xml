@@ -49,6 +49,9 @@
         <service android:name=".BusDetailsService"
             android:exported="false" />
 
+        <service android:name=".FetchThanksCountService"
+            android:exported="false" />
+
         <activity
             android:name=".MainActivity"
             android:label="@string/title_activity_main">

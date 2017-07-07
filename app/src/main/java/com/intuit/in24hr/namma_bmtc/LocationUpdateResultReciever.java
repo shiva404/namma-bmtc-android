@@ -19,7 +19,6 @@ public class LocationUpdateResultReciever extends ResultReceiver {
         mReceiver = receiver;
     }
 
-
     public interface Receiver {
         void onReceiveUpdateLocationShareResult(int resultCode, Bundle resultData);
     }
